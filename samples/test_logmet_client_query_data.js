@@ -9,6 +9,9 @@ var logmetQueryEndpoint = 'logmet.ng.bluemix.net';
 var tenantId = process.env.TENANT_ID;
 var bearerToken = process.env.BEARER_TOKEN;
 
+//The Elasticsearch type of the documents to be written to Logmet
+var type = 'fabio-test-1';
+
 var logmetClient = new LogmetConsumer(logmetQueryEndpoint, tenantId, bearerToken);
 
 var queryDSLBody = {
@@ -17,14 +20,14 @@ var queryDSLBody = {
 			filtered: {
 				filter: {
 					term: {
-						item: '98'
+						item: 15
 					}
 				}
 			}
 		}
 };
 
-logmetClient.query(tenantId, bearerToken, 'fabio-normal-big-5', queryDSLBody, function(error, documents) {
+logmetClient.query(tenantId, bearerToken, type, queryDSLBody, function(error, documents) {
 	if (error != '') {
 		consolelog('Query returned an error: ' + error);
 	} else {
