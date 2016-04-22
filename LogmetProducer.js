@@ -136,7 +136,7 @@ LogmetProducer.prototype.sendData = function(data, type, tenantId, callback) {
  *  Gracefully stops the connection with Logmet's MT Lumberjack server
  *  It will close the connection only after all locally-buffered data has been received by Logmet.
  */
-LogmetProducer.prototype.terminateMTLumberjackConnection = function() {
+LogmetProducer.prototype.terminate = function() {
 	if (pendingDataElements.length == 0 && currentDataElementACKED) {
 		tlsSocket.destroy();
 		logger.info('Logmet client has been stopped.');

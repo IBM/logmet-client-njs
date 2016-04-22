@@ -10,7 +10,7 @@ var tenantId = process.env.TENANT_ID;
 var logmetToken = process.env.LOGMET_TOKEN;
 
 // The Elasticsearch type of the documents to be written to Logmet
-var type = 'fabio-test-1';
+var type = 'fabio-test-2';
 
 // How many data points will be produced when running this sample
 var NUMBER_OF_DATA_POINTS = 20;
@@ -100,7 +100,7 @@ logmetClient.connect(function(error, status) {
 				});
 			} else {
 				clearInterval(timer);
-				logmetClient.terminateMTLumberjackConnection();
+				logmetClient.terminate();
 			}
 		}, timeBetweenData);
 	}
