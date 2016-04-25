@@ -94,7 +94,7 @@ var logmet = require('../logmet-client');
 
 var logmetQueryEndpoint = 'logmet.ng.bluemix.net';
 
-var logmetClient = new logmet.LogmetConsumer(logmetQueryEndpoint);
+var logmetConsumer = new logmet.LogmetConsumer(logmetQueryEndpoint);
 
 var queryDSLBody = {
 		query: {
@@ -106,7 +106,7 @@ var queryDSLBody = {
 
 // Omitted initializations of tenantId and bearerToken
 
-logmetClient.query(tenantId, bearerToken, 'tool_id', queryDSLBody, function(error, documents) {
+logmetConsumer.query(tenantId, bearerToken, 'tool_id', queryDSLBody, function(error, documents) {
 	if (error != '') {
 		console.log('Query returned an error: ' + error);
 	} else {
