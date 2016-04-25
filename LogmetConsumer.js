@@ -64,8 +64,12 @@ LogmetConsumer.prototype.query = function(tenantId, bearerToken, type, queryDSLB
 		});
 		
 		result.on('end', function() {
-			retrievedObject = JSON.parse(retrievedString);
-			callback('', retrievedObject.hits.hits);
+			if (retrievedString) {
+				retrievedObject = JSON.parse(retrievedString);
+				callback('', retrievedObject.hits.hits);
+			} else {
+				callback('', []);
+			}
 		});
 	});
 	request.write(queryBodyJSONString);

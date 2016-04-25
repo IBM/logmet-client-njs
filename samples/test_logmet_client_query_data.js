@@ -12,7 +12,7 @@ var bearerToken = process.env.BEARER_TOKEN;
 //The Elasticsearch type of the documents to be written to Logmet
 var type = 'fabio-test-1';
 
-var logmetClient = new LogmetConsumer(logmetQueryEndpoint, tenantId, bearerToken);
+var logmetClient = new LogmetConsumer(logmetQueryEndpoint);
 
 var queryDSLBody = {
 		_source: true,
@@ -29,8 +29,9 @@ var queryDSLBody = {
 
 logmetClient.query(tenantId, bearerToken, type, queryDSLBody, function(error, documents) {
 	if (error != '') {
-		consolelog('Query returned an error: ' + error);
+		console.log('Query returned an error: ' + error);
 	} else {
+		console.log('Documents returned by Logmet:');
 		console.log(documents);
 	}
 });
