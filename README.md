@@ -42,13 +42,13 @@ var logmetProducer = new logmet.LogmetProducer(logmetEndpoint, logmetPort, logme
 //    ...
 // } 
 
-logmetProducer.sendData(event, 'tool_id', logmetTenant, function(error, data) {
+logmetProducer.sendData(event, 'tool_id', logmetTenant, function(error, status) {
   if (error) {
-    if (!data.isDataAccepted) {
+    if (!status.isDataAccepted) {
       console.log('Logmet client rejected the data. ERROR: ' + error);
       // Retry logic goes here
     } 
-  else if (data.isDataAccepted) {
+  else if (status.isDataAccepted) {
     console.log('Logmet client accepted the data.');
   }
 });
@@ -61,7 +61,7 @@ The `sendData` function, used in the sample above, takes the following parameter
 * the Bluemix space id corresponding to the owner of the data. If the constructor was called with a regular tenant id, that is, `isSuperTenant` was set to `false`, then the value of this parameter must match the id given to the constructor. Differently, if the constructor was called with `isSuperTenant` set to `true`, then the value of this parameter will contain a Bluemix space id corresponding to the tenant who will own the data, on behalf of whom the _supertenant_ is sending the data.
 * A callback function, indicating whether the data was accepted or not.
 
-In case of error, the callback function will receive the error message in the `error` argument. The data returned by the callback function in the `data` argument is an object containing three Boolean-valued fields, namely:
+In case of error, the callback function will receive the error message in the `error` argument. The data returned by the callback function in the `status` argument is an object containing three Boolean-valued fields, namely:
 
 ```javascript
 {
