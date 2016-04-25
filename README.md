@@ -96,8 +96,6 @@ var logmetQueryEndpoint = 'logmet.ng.bluemix.net';
 
 var logmetClient = new logmet.LogmetConsumer(logmetQueryEndpoint);
 
-// Omitted initializations of tenantId and bearerToken
-
 var queryDSLBody = {
 		query: {
 			match: {
@@ -105,6 +103,8 @@ var queryDSLBody = {
 			}
         }
 };
+
+// Omitted initializations of tenantId and bearerToken
 
 logmetClient.query(tenantId, bearerToken, 'tool_id', queryDSLBody, function(error, documents) {
 	if (error != '') {
