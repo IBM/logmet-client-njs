@@ -81,7 +81,7 @@ In case of error, the callback function will receive the error message in the `e
 }
 ```
 
-If `isDataAccepted` is true, the data was accepted by the `logmet-client` code and will be eventually indexed by Logmet. Otherwise, the reason for the data rejection is reflected by the value of the fields `isBufferFull` and `connectionError`.
+If `isDataAccepted` is true, the data was accepted by the `logmet-client` code and will be eventually indexed by Logmet. Otherwise, the reason for the data rejection is reflected by the value of the fields `isBufferFull` and `connectionError`. If the data is not accepted by `LogmetProducer` the caller should retry if needed.
 
 ## LogmetConsumer Class
 
