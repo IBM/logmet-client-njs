@@ -42,19 +42,29 @@ var logmetProducer = new logmet.LogmetProducer(logmetEndpoint, logmetPort, logme
 //    ...
 // };
 
-logmetProducer.sendData(event, 'tool_id', logmetTenant, function(error, status) {
-  if (error) {
-    if (!status.isDataAccepted) {
-      console.log('Logmet client rejected the data. ERROR: ' + error);
-      // Retry logic goes here
-    } 
-  else if (status.isDataAccepted) {
-    console.log('Logmet client accepted the data.');
-  }
+
+logmetProducer.connect(function(error, status) {
+	if (error) {
+	  console.log('Connection with Logmet failed. ERROR: ' + error);
+	} else if (status.handshakeCompleted) {
+		console.log('LogmetClient is ready to send data.');	
+		logmetProducer.sendData(event, 'tool_id', logmetTenant, function(error, status) {
+           if (error) {
+             if (!status.isDataAccepted) {
+               console.log('Logmet client rejected the data. ERROR: ' + error);
+               // Retry logic goes here
+             }
+           } else if (status.isDataAccepted) {
+             console.log('Logmet client accepted the data.');
+           }
+        });
+	}
 });
 ```
 
-The `sendData` function, used in the sample above, takes the following parameters in that order:
+Before calling the `sendData` function for the first time, the program must call the function `connect`. This function will establish a persistent connection with Logmet. The `connect` function takes a callback as its only argument. Upon successfully connecting to Logmet, `connect` will pass to the callback a `status` object with the Boolean-valued field `handshakeCompleted` set to `true`. Once this happens, the program can call the `sendData` function as many times as desired.
+
+The `sendData` function, as shown in the sample above, takes the following parameters in that order:
 
 * the object to be send to Logmet.
 * the Elasticsearch type to be associated with the object.
