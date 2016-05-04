@@ -60,17 +60,23 @@ var INACTIVITY_TIMEOUT = 30000; // milliseconds
  * @param {string} tenantOrSuperTenantId It represents either a Logmet supertenant id or a Bluemix space id
  * @param {string} logmetToken The Logmet token (API key) used for authentication
  * @param {boolean} isSuperTenant Flag indicating whether or not the value passed to tenantOrSupertenantId represents a supertenant
+ * @param {object} options Additional optional parameters that override defaults. Supported overrides: bufferSize
  *  
  */
-function LogmetProducer(endpoint, port, tenantOrSupertenantId, logmetToken, isSuperTenant) {
+function LogmetProducer(endpoint, port, tenantOrSupertenantId, logmetToken, isSuperTenant, options) {
 	this.endpoint = endpoint;
 	this.port = port;
 	this.tenantOrSupertenantId = tenantOrSupertenantId;
 	this.logmetToken = logmetToken;
 	this.isSuperTenant = isSuperTenant;
+
+	if (options.bufferSize && parseInt(options.bufferSize, 10)) {
+		MAX_PENDING_ELEMENTS = parseInt(options.bufferSize, 10);
+	}
 		
 	windowFramebuffer = new Buffer(6);
 	windowFramebuffer.write('1W', 0, 2);	
+	
 }
 
 // Export the constructor

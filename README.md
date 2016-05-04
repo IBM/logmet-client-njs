@@ -12,7 +12,7 @@ This class can be used to send nodejs objects to Logmet. It translates the objec
 The constructor `LogmetProducer` is defined as follows:
 
 ```javascript
-function LogmetProducer(endpoint, port, tenantOrSupertenantId, logmetToken, isSuperTenant)
+function LogmetProducer(endpoint, port, tenantOrSupertenantId, logmetToken, isSuperTenant, options)
 ```
 
 The above constructor takes the  following parameters:
@@ -22,6 +22,7 @@ The above constructor takes the  following parameters:
 * `logmetTenant`: The value of this parameter represents either a Bluemix space id (tenant id), or the id of a Logmet _supertenant_.
 * `logmetToken`: This is the Logmet token associated with the chosen `logmetTenant`. This token can be obtained by querying Logmet. It never expires.
 * `isSuperTenant`: This is a Boolean-valued parameter indicating whether or not the value passed to `logmetTenant` represents a _supertenant_.
+* `options`: This object allows you to optionally override defaults in the client. Currently, the only supported override is for `bufferSize`
 
 ### Usage
 
@@ -35,7 +36,7 @@ var logmetPort = 9091;
 var logmetTenant = process.env.LOGMET_TENANT;
 var logmetToken = process.env.LOGMET_TOKEN;
 
-var logmetProducer = new logmet.LogmetProducer(logmetEndpoint, logmetPort, logmetTenant, logmetToken, false);
+var logmetProducer = new logmet.LogmetProducer(logmetEndpoint, logmetPort, logmetTenant, logmetToken, false, {bufferSize: 100});
 
 // event contains the object to be sent to Logmet. Omitting the initialization...
 // event = {
@@ -47,7 +48,7 @@ logmetProducer.connect(function(error, status) {
 	if (error) {
 	  console.log('Connection with Logmet failed. ERROR: ' + error);
 	} else if (status.handshakeCompleted) {
-		console.log('LogmetClient is ready to send data.');	
+		console.log('LogmetClient is ready to send data.');
 		logmetProducer.sendData(event, 'tool_id', logmetTenant, function(error, status) {
            if (error) {
              if (!status.isDataAccepted) {
@@ -75,8 +76,8 @@ In case of error, the callback function will receive the error message in the `e
 
 ```javascript
 {
-  isBufferFull: false, 
-  connectionError: false, 
+  isBufferFull: false,
+  connectionError: false,
   isDataAccepted: true
 }
 ```
@@ -129,7 +130,7 @@ The `query` function, used in the sample above, takes the following parameters i
 
 * The id of the tenant (Bluemix space id) who owns the data that is being queried.
 * A valid Bluemix bearer token belonging to the identified tenant.
-* The Elasticsearch type that has been associated with the data being queried. 
+* The Elasticsearch type that has been associated with the data being queried.
 * A query expressed in the Elasticsearch query DSL codified as a nodejs object.
 * A callback function used to process errors as well as the actual data returned by the query.
 
