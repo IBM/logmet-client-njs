@@ -135,3 +135,7 @@ The `query` function, used in the sample above, takes the following parameters i
 * A callback function used to process errors as well as the actual data returned by the query.
 
 In case of error, the callback function will receive the error message in the `error` argument. All documents retrieved by the query will be passed to the callback function as an array of objects assigned to the argument `documents`.
+
+### Debugging
+
+The default logging level for the library is `warn`, to customize it set the environment variable `logmet_client_njs_level` to your desired logging level. Example: `export logmet_client_njs_level='debug' && node index`. Other valid logging options are `trace`, `info`, `warn`, `error` and `fatal`.
