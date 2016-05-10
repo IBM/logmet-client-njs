@@ -1,6 +1,6 @@
 {
   "name": "@logmet-clients/logmet-client",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Library for sending data to and querying data from Logmet",
   "author": "Fabio A. Oliveira <fabolive@us.ibm.com>",
   "dependencies": {
