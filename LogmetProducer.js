@@ -70,7 +70,7 @@ function LogmetProducer(endpoint, port, tenantOrSupertenantId, logmetToken, isSu
 	this.logmetToken = logmetToken;
 	this.isSuperTenant = isSuperTenant;
 
-	if (options.bufferSize && parseInt(options.bufferSize, 10)) {
+	if (options && options.bufferSize && parseInt(options.bufferSize, 10)) {
 		MAX_PENDING_ELEMENTS = parseInt(options.bufferSize, 10);
 	}
 		
