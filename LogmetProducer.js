@@ -50,6 +50,10 @@ var TERMINATE_POLL_INTERVAL = 300; // milliseconds
 // How much time until we detect an unexpected network error 
 var INACTIVITY_TIMEOUT = 30000; // milliseconds
 
+// How much time until we re-try when a connection drops
+var RETRY_DELAY = 2; // seconds
+var CURRENT_EXPONENT_BACKOFF = 0; // variable to increment with consecutive failures (exponential backoff)
+
 
 /*
  * @constructor
@@ -164,6 +168,16 @@ LogmetProducer.prototype.terminate = function() {
  *******************************************/
 
 /*
+ * Call parameter retryFunction after certain number of seconds
+ * the number of seconds is dependent on the number of consecutive connection failures
+ * and uses an exponential backoff equation.
+ */
+function retryWithExponentialBackoff(retryFunction) {
+	setTimeout(retryFunction, RETRY_DELAY*(Math.pow(2, CURRENT_EXPONENT_BACKOFF)) * 1000);
+	CURRENT_EXPONENT_BACKOFF++; // for next time.
+};
+
+/*
  * Establishes a connection with Logmet.
  */
 function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logmetToken, isSuperTenant, callback) {
@@ -186,6 +200,8 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 		  }
 	});
 
+	var retryFunction = connectToMTLumberjackServer.bind(this, endpoint, port, tenantOrSupertenantId, logmetToken, isSuperTenant, callback);
+
 	
 	// Define callbacks to handle the network communication with Logmet
 	
@@ -197,10 +213,10 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 			return;
 		}
 		
-		logger.warn('A "timeout" event was caught. Detected a potential connection error with Logmet. Reconnecting...');
+		logger.warn('A "timeout" event was caught. Detected a potential connection error with Logmet. Will attempt to reconnect in ' + RETRY_DELAY*(Math.pow(2, CURRENT_EXPONENT_BACKOFF)) + ' seconds.');
 		reconnecting = true;
 		tlsSocket.destroy();
-		connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logmetToken, isSuperTenant, callback);
+		retryWithExponentialBackoff(retryFunction);
 	});
 	
 	tlsSocket.on('error', function(error) {
@@ -211,10 +227,10 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 		if (error.code == 'ECONNREFUSED' || error.code == 'ENOTFOUND') {
 			//   While trying to connect or reconnect, either the connection attempt was refused 
 			// or the network was down. Retry...
-			logger.warn('Connection refused or network down. Reconnecting...');
+			logger.warn('Connection refused or network down. Will attempt to reconnect in ' + RETRY_DELAY*(Math.pow(2, CURRENT_EXPONENT_BACKOFF)) + ' seconds.');
 			reconnecting = true;
 			tlsSocket.destroy();
-			connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logmetToken, isSuperTenant, callback);
+			retryWithExponentialBackoff(retryFunction);
 			return;
 		}
 		
@@ -223,10 +239,10 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 			return;
 		}
 		
-		logger.warn('An "error" event was caught. Detected a connection error with Logmet. Reconnecting...');
+		logger.warn('An "error" event was caught. Detected a connection error with Logmet. Will attempt to reconnect in ' + RETRY_DELAY*(Math.pow(2, CURRENT_EXPONENT_BACKOFF)) + ' seconds.');
 		reconnecting = true;
 		tlsSocket.destroy();
-		connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logmetToken, isSuperTenant, callback);
+		retryWithExponentialBackoff(retryFunction);
 	});
 	
 	tlsSocket.on('disconnect', function() {
@@ -236,10 +252,10 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 			return;
 		}
 		
-		logger.warn('A "disconnect" event was caught. The connection with Logmet was lost. Reconnecting...');
+		logger.warn('A "disconnect" event was caught. The connection with Logmet was lost. Will attempt to reconnect in ' + RETRY_DELAY*(Math.pow(2, CURRENT_EXPONENT_BACKOFF)) + ' seconds.');
 		reconnecting = true;
 		tlsSocket.destroy();
-		connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logmetToken, isSuperTenant, callback);
+		retryWithExponentialBackoff(retryFunction);
 	});
 	
 	tlsSocket.on('end', function() {
@@ -249,10 +265,10 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 			return;
 		}
 		
-		logger.warn('An "end" event was caught. The connection with Logmet was lost. Reconnecting...');
+		logger.warn('An "end" event was caught. The connection with Logmet was lost. Will attempt to reconnect in ' + RETRY_DELAY*(Math.pow(2, CURRENT_EXPONENT_BACKOFF)) + ' seconds.');
 		reconnecting = true;
 		tlsSocket.destroy();
-		connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logmetToken, isSuperTenant, callback);
+		retryWithExponentialBackoff(retryFunction);
 	});
 	
 	
@@ -284,6 +300,9 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 				}
 				
 				logger.info('Initialized the Logmet client. The Logmet handshake is complete.');
+
+				// Reset the backoff exponent, as we have just successfully connected.
+				CURRENT_EXPONENT_BACKOFF = 0;
 				
 				if (!reconnecting) {
 					// Let's signal the constructor caller that the connection is established.
