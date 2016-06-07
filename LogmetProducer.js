@@ -213,10 +213,10 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 			return;
 		}
 		
-		logger.warn('A "timeout" event was caught. Detected a potential connection error with Logmet. Will attempt to reconnect in ' + RETRY_DELAY*(Math.pow(2, CURRENT_EXPONENT_BACKOFF)) + ' seconds.');
+		logger.info('A "timeout" event was caught. Proactively re-creating logmet connection.');
 		reconnecting = true;
 		tlsSocket.destroy();
-		retryWithExponentialBackoff(retryFunction);
+		retryFunction();
 	});
 	
 	tlsSocket.on('error', function(error) {
