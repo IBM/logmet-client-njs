@@ -38,32 +38,29 @@ var logmetToken = process.env.LOGMET_TOKEN;
 
 var logmetProducer = new logmet.LogmetProducer(logmetEndpoint, logmetPort, logmetTenant, logmetToken, false, {bufferSize: 100});
 
-// event contains the object to be sent to Logmet. Omitting the initialization...
-// event = {
-//    ...
-// };
-
-
 logmetProducer.connect(function(error, status) {
-	if (error) {
-	  console.log('Connection with Logmet failed. ERROR: ' + error);
-	} else if (status.handshakeCompleted) {
-		console.log('LogmetClient is ready to send data.');
-		logmetProducer.sendData(event, 'tool_id', logmetTenant, function(error, status) {
-           if (error) {
-             if (!status.isDataAccepted) {
-               console.log('Logmet client rejected the data. ERROR: ' + error);
-               // Retry logic goes here
-             }
-           } else if (status.isDataAccepted) {
-             console.log('Logmet client accepted the data.');
-           }
-        });
-	}
+    if (error) {
+        console.log('Connection with Logmet failed. ERROR: ' + error);
+    } else if (status.handshakeCompleted) {
+        console.log('LogmetClient is ready to send data.');
+    }
 });
+
+function sendData(event) {
+    logmetProducer.sendData(event, 'tool_id', logmetTenant, function(error, status) {
+        if (error) {
+            console.log('Logmet client rejected the data. ERROR: ' + error);
+        } else {
+            console.log('Logmet client accepted the data.');
+            if (!status.connectionActive) {
+                console.log('WARNING: Logmet client not connected to Logmet, data waiting in buffer.')
+            }
+        }
+    });
+}
 ```
 
-Before calling the `sendData` function for the first time, the program must call the function `connect`. This function will establish a persistent connection with Logmet. The `connect` function takes a callback as its only argument. Upon successfully connecting to Logmet, `connect` will pass to the callback a `status` object with the Boolean-valued field `handshakeCompleted` set to `true`. Once this happens, the program can call the `sendData` function as many times as desired.
+Before calling the `sendData` function for the first time, the program should call the function `connect`. This function will establish a persistent connection with Logmet. The `connect` function takes a callback as its only argument. Upon successfully connecting to Logmet, `connect` will pass to the callback a `status` object with the Boolean-valued field `handshakeCompleted` set to `true`. If the `sendData` function is called before the `connect` function callback returns, incoming data will be placed in the buffer and will be sent to Logmet once a connection with Logmet is established.
 
 The `sendData` function, as shown in the sample above, takes the following parameters in that order:
 
@@ -72,17 +69,15 @@ The `sendData` function, as shown in the sample above, takes the following param
 * the Bluemix space id corresponding to the owner of the data. If the constructor was called with a regular tenant id, that is, `isSuperTenant` was set to `false`, then the value of this parameter must match the id given to the constructor. Differently, if the constructor was called with `isSuperTenant` set to `true`, then the value of this parameter will contain a Bluemix space id corresponding to the tenant who will own the data, on behalf of whom the _supertenant_ is sending the data.
 * A callback function, indicating whether the data was accepted or not.
 
-In case of error, the callback function will receive the error message in the `error` argument. The data returned by the callback function in the `status` argument is an object containing three Boolean-valued fields, namely:
+If the data buffer is full, the data will not be accepted and the callback function will receive an error message in the `error` argument. The data returned by the callback function in the `status` argument is an object containing a Boolean-valued field:
 
 ```javascript
 {
-  isBufferFull: false,
-  connectionError: false,
-  isDataAccepted: true
+  connectionActive: false
 }
 ```
 
-If `isDataAccepted` is true, the data was accepted by the `logmet-client` code and will be eventually indexed by Logmet. Otherwise, the reason for the data rejection is reflected by the value of the fields `isBufferFull` and `connectionError`. Should the data be rejected by `LogmetProducer`, the caller must retry if required.
+The `connectionActive` field indicates whether the `logmet-client` is currently connected to Logmet. When the connection is inactive, data is placed in the buffer but won't be sent to Logmet until a connection is established.
 
 ## LogmetConsumer Class
 
