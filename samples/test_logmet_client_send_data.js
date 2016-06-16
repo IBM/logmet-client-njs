@@ -10,10 +10,10 @@ var tenantId = process.env.TENANT_ID;
 var logmetToken = process.env.LOGMET_TOKEN;
 
 // The Elasticsearch type of the documents to be written to Logmet
-var type = 'fabio-test-2';
+var type = 'fabio-test-5';
 
 // How many data points will be produced when running this sample
-var NUMBER_OF_DATA_POINTS = 20;
+var NUMBER_OF_DATA_POINTS = 200;
 
 // Time interval between consecutive operations to send data to Logmet
 var timeBetweenData = 100; // milliseconds
@@ -88,13 +88,11 @@ logmetClient.connect(function(error, status) {
 			if (i < NUMBER_OF_DATA_POINTS) {
 				data.item = i.toString();
 				logmetClient.sendData(data, type, tenantId, function(error, data) {
-					if (error != '') {
-						if (!data.isDataAccepted) {
-							console.log('Logmet client rejected the data.');
-							console.log('Error returned: ' + error);
-						}
-					} else if (data.isDataAccepted) {
-						console.log('Logmet client accepted the data; i = ' + i);
+					if (error) {
+						console.log('Logmet client rejected the data.');
+						console.log('Error returned: ' + error);
+					} else {
+						console.log('Logmet client accepted the data; i = ' + i + '; connectionActive: ' + data.connectionActive);
 						i += 1;
 					}
 				});
