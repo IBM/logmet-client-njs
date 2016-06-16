@@ -41,6 +41,9 @@ var MAX_PENDING_ELEMENTS = 50;
 // Used for constructing a window frame
 var windowFramebuffer;
 
+// Flag indicating if an initial connection has been established
+var initialConnection = false;
+
 // Flag indicating if we are recovering from a connection error
 var reconnecting = false;
 
@@ -116,16 +119,12 @@ LogmetProducer.prototype.connect = function(callback) {
  * @param {string} tenantId The id of the tenant who owns the data 
  */
 LogmetProducer.prototype.sendData = function(data, type, tenantId, callback) {	
+	var connection = initialConnection && !reconnecting;
+
 	if (pendingDataElements.length >= MAX_PENDING_ELEMENTS) {
 		// Our buffer is full. Apply back pressure.
 		logger.warn('Buffer of data elements is full. Rejecting new data');
-		callback('ERROR: Buffer of data elements is full', {isBufferFull: true, connectionError: false, isDataAccepted: false});
-		return;
-	} else if (reconnecting) {
-		//  If we get here, we are probably reconnecting to Logmet and the caller is trying to send data
-		// before we completed the handshake. Reject the data and notify the caller.
-		logger.warn('Caller tried to send data before handshake was completed during reconnection. Rejecting the data.');
-		callback('ERROR: Connection is currently being restablished. Retry later.', {isBufferFull: false, connectionError: true, isDataAccepted: false});
+		callback('ERROR: Buffer of data elements is full', {connectionActive: connection});
 		return;
 	}
 	
@@ -137,8 +136,10 @@ LogmetProducer.prototype.sendData = function(data, type, tenantId, callback) {
 	
 	logger.debug('Current size of pending data buffer: ' + pendingDataElements.length);
 	
-	callback('', {isBufferFull: false, connectionError: false, isDataAccepted: true});
-	processDataBuffer();
+	callback('', {connectionActive: connection});
+	if (connection) {
+		processDataBuffer();
+	}
 };
 
 
@@ -308,6 +309,7 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 					// Let's signal the constructor caller that the connection is established.
 					// We only notify the constructor caller when the first connection is established.
 					// We should NOT call back to the caller every time we reconnect due to an error.
+					initialConnection = true;
 					callback('', {handshakeCompleted: true});
 				}
 			} else {
