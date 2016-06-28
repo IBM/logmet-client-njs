@@ -44,8 +44,8 @@ var windowFramebuffer;
 // Flag indicating if an initial connection has been established
 var initialConnection = false;
 
-// Flag indicating if we are recovering from a connection error
-var reconnecting = false;
+// Flag indicating if there is an active socket connection with Logmet
+var activeConnection = false;
 
 // When a call to terminate() is made, how frequently we should check if all data has been flushed.
 var TERMINATE_POLL_INTERVAL = 300; // milliseconds 
@@ -54,8 +54,9 @@ var TERMINATE_POLL_INTERVAL = 300; // milliseconds
 var INACTIVITY_TIMEOUT = 30000; // milliseconds
 
 // How much time until we re-try when a connection drops
-var RETRY_DELAY = 2; // seconds
-var CURRENT_EXPONENT_BACKOFF = 0; // variable to increment with consecutive failures (exponential backoff)
+var INITIAL_RETRY_DELAY = 2; // seconds
+var RETRY_DELAY = INITIAL_RETRY_DELAY; // variable to increment with consecutive failures (seconds)
+var RETRY_DELAY_MAX = 15 * 60; // maximum retry delay (seconds)
 
 
 /*
@@ -119,12 +120,11 @@ LogmetProducer.prototype.connect = function(callback) {
  * @param {string} tenantId The id of the tenant who owns the data 
  */
 LogmetProducer.prototype.sendData = function(data, type, tenantId, callback) {	
-	var connection = initialConnection && !reconnecting;
 
 	if (pendingDataElements.length >= MAX_PENDING_ELEMENTS) {
 		// Our buffer is full. Apply back pressure.
 		logger.warn('Buffer of data elements is full. Rejecting new data');
-		callback('ERROR: Buffer of data elements is full', {connectionActive: connection});
+		callback('ERROR: Buffer of data elements is full', {connectionActive: activeConnection});
 		return;
 	}
 	
@@ -136,8 +136,8 @@ LogmetProducer.prototype.sendData = function(data, type, tenantId, callback) {
 	
 	logger.debug('Current size of pending data buffer: ' + pendingDataElements.length);
 	
-	callback('', {connectionActive: connection});
-	if (connection) {
+	callback('', {connectionActive: activeConnection});
+	if (activeConnection) {
 		processDataBuffer();
 	}
 };
@@ -174,8 +174,10 @@ LogmetProducer.prototype.terminate = function() {
  * and uses an exponential backoff equation.
  */
 function retryWithExponentialBackoff(retryFunction) {
-	setTimeout(retryFunction, RETRY_DELAY*(Math.pow(2, CURRENT_EXPONENT_BACKOFF)) * 1000);
-	CURRENT_EXPONENT_BACKOFF++; // for next time.
+	setTimeout(retryFunction, RETRY_DELAY * 1000);
+	if (RETRY_DELAY < RETRY_DELAY_MAX) {
+		RETRY_DELAY *= 2; // for next time.
+	}
 };
 
 /*
@@ -209,13 +211,13 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 	tlsSocket.setTimeout(INACTIVITY_TIMEOUT, function() {
 		// Something unexpected happened to our connection with Logmet. Let's reconnect.
 		
-		if (reconnecting) {
+		if (this.destroyed) {
 			logger.debug('Caught "timeout" event while reconnecting. Allow current reconnection attempt to proceed');
 			return;
 		}
 		
 		logger.info('A "timeout" event was caught. Proactively re-creating logmet connection.');
-		reconnecting = true;
+		activeConnection = false;
 		tlsSocket.destroy();
 		retryFunction();
 	});
@@ -228,46 +230,46 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 		if (error.code == 'ECONNREFUSED' || error.code == 'ENOTFOUND') {
 			//   While trying to connect or reconnect, either the connection attempt was refused 
 			// or the network was down. Retry...
-			logger.warn('Connection refused or network down. Will attempt to reconnect in ' + RETRY_DELAY*(Math.pow(2, CURRENT_EXPONENT_BACKOFF)) + ' seconds.');
-			reconnecting = true;
+			logger.warn('Connection refused or network down. Will attempt to reconnect in ' + RETRY_DELAY + ' seconds.');
+			activeConnection = false;
 			tlsSocket.destroy();
 			retryWithExponentialBackoff(retryFunction);
 			return;
 		}
 		
-		if (reconnecting) {
+		if (this.destroyed) {
 			logger.debug('Caught "error" event while reconnecting. Allow current reconnection attempt to proceed');
 			return;
 		}
 		
-		logger.warn('An "error" event was caught. Detected a connection error with Logmet. Will attempt to reconnect in ' + RETRY_DELAY*(Math.pow(2, CURRENT_EXPONENT_BACKOFF)) + ' seconds.');
-		reconnecting = true;
+		logger.warn('An "error" event was caught. Detected a connection error with Logmet. Will attempt to reconnect in ' + RETRY_DELAY + ' seconds.');
+		activeConnection = false;
 		tlsSocket.destroy();
 		retryWithExponentialBackoff(retryFunction);
 	});
 	
 	tlsSocket.on('disconnect', function() {
 		// Something unexpected happened to our connection with Logmet. Let's reconnect.
-		if (reconnecting) {
+		if (this.destroyed) {
 			logger.debug('Caught "disconnect" event while reconnecting. Allow current reconnection attempt to proceed');
 			return;
 		}
 		
-		logger.warn('A "disconnect" event was caught. The connection with Logmet was lost. Will attempt to reconnect in ' + RETRY_DELAY*(Math.pow(2, CURRENT_EXPONENT_BACKOFF)) + ' seconds.');
-		reconnecting = true;
+		logger.warn('A "disconnect" event was caught. The connection with Logmet was lost. Will attempt to reconnect in ' + RETRY_DELAY + ' seconds.');
+		activeConnection = false;
 		tlsSocket.destroy();
 		retryWithExponentialBackoff(retryFunction);
 	});
 	
 	tlsSocket.on('end', function() {
 		// Something unexpected happened to our connection with Logmet. Let's reconnect.
-		if (reconnecting) {
+		if (this.destroyed) {
 			logger.debug('Caught "end" event while reconnecting. Allow current reconnection attempt to proceed');
 			return;
 		}
 		
-		logger.warn('An "end" event was caught. The connection with Logmet was lost. Will attempt to reconnect in ' + RETRY_DELAY*(Math.pow(2, CURRENT_EXPONENT_BACKOFF)) + ' seconds.');
-		reconnecting = true;
+		logger.warn('An "end" event was caught. The connection with Logmet was lost. Will attempt to reconnect in ' + RETRY_DELAY + ' seconds.');
+		activeConnection = false;
 		tlsSocket.destroy();
 		retryWithExponentialBackoff(retryFunction);
 	});
@@ -302,10 +304,10 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 				
 				logger.info('Initialized the Logmet client. The Logmet handshake is complete.');
 
-				// Reset the backoff exponent, as we have just successfully connected.
-				CURRENT_EXPONENT_BACKOFF = 0;
+				// Reset the retry delay, as we have just successfully connected.
+				RETRY_DELAY = INITIAL_RETRY_DELAY;
 				
-				if (!reconnecting) {
+				if (!initialConnection) {
 					// Let's signal the constructor caller that the connection is established.
 					// We only notify the constructor caller when the first connection is established.
 					// We should NOT call back to the caller every time we reconnect due to an error.
@@ -314,13 +316,13 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 				}
 			} else {
 				// A data frame has been ACKed
-				if (!reconnecting) {
+				if (activeConnection) {
 					currentDataElement = null;
 					currentDataElementACKED = true;
 				}
 			}
 			
-			reconnecting = false;
+			activeConnection = true;
 			processDataBuffer();
 		} else {
 			// Unknown ACK version
@@ -447,7 +449,7 @@ function processDataBuffer() {
 			sendWindowFrame(1);
 			logger.debug('Sent window frame: ' + windowFramebuffer);
 
-			if (reconnecting) {
+			if (!activeConnection) {
 				logger.debug('Returned from processDataBuffer() before sending data due to an ongoing reconnection.');
 				return;
 			}
