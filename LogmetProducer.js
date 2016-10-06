@@ -14,8 +14,11 @@ var logger = require('./logger');
 // Socket used for communicating with Logmet
 var tlsSocket;
 
-// Keeps track of the last ACK received from Logmet on the current network connection
-var lastACK = -1;
+// Keeps track of the current ACK received from Logmet on the current network connection
+var currentAck = -1;
+
+// Keeps track of the previous ACK received from Logmet on the current network connection
+var previousAck = -1;
 
 // Keeps track of the last sequence number we sent out to Logmet on the current network connection
 var currentSequenceNumber = 0;
@@ -29,11 +32,11 @@ var MAX_SEQ_NUMBER = Number.MAX_SAFE_INTEGER - 1;
 // Used to buffer data that needs to be sent out to Logmet
 var pendingDataElements = [];
 
-// Data element currently in-flight and not ACKED
-var currentDataElement = null;
+// Data elements currently in-flight and not ACKED
+var unackedDataElements = [];
 
-// Flag indicating whether or not the current data element has been ACKed
-var currentDataElementACKED = false;
+// Max number of unacked data we are willing to send to Logmet before waiting for an ACK
+var MAX_UNACKED_ELEMENTS = 100;
 
 // Maximum number of pending data elements we are willing to buffer
 var MAX_PENDING_ELEMENTS = 50;
@@ -148,13 +151,13 @@ LogmetProducer.prototype.sendData = function(data, type, tenantId, callback) {
  *  It will close the connection only after all locally-buffered data has been received by Logmet.
  */
 LogmetProducer.prototype.terminate = function() {
-	if (pendingDataElements.length == 0 && currentDataElementACKED) {
+	if (pendingDataElements.length === 0 && unackedDataElements.length === 0) {
 		tlsSocket.destroy();
 		logger.info('Logmet client has been stopped.');
 	} else {
 		logger.info('Started a timer to stop the Logmet client. Poll frequency: ' + TERMINATE_POLL_INTERVAL + ' ms');
 		var timer = setInterval(function() {
-			if (pendingDataElements.length == 0 && currentDataElementACKED) {
+			if (pendingDataElements.length === 0 && unackedDataElements.length === 0) {
 				tlsSocket.destroy();
 				logger.info('Logmet client has been stopped.');
 				clearInterval(timer);
@@ -185,7 +188,8 @@ function retryWithExponentialBackoff(retryFunction) {
  */
 function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logmetToken, isSuperTenant, callback) {
 	currentSequenceNumber = 0;
-	lastACK = -1;
+	currentAck = -1;
+	previousAck = -1;
 	
 	var conn_options = {
 			host: endpoint,
@@ -291,15 +295,17 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 		} else if (version == 49) {
 			// We got a '"1A"<ack_number>'. Let's read the ACK number.
 			logger.debug("Reading ACK number");
-			lastACK = buffer.readInt32BE(2);
-			logger.info('Last ACK received: ' + lastACK);
-			if (lastACK == 0) {
+			previousAck = currentAck;
+			currentAck = buffer.readInt32BE(2);
+			logger.info('Last ACK received: ' + currentAck);
+			if (currentAck == 0) {
 				// The connection has just been established.
 				
 				// If this is a reconnection after a failure, let's check if there is unACKED data to be sent
-				if (currentDataElement != null && !currentDataElementACKED) {
-					var frame = convertDataToFrame(currentDataElement, incrementSequenceNumber());
-					tlsSocket.write(frame);
+				if (unackedDataElements.length !== 0) {
+					for (var i = 0; i < unackedDataElements.length; i++) {
+						writeToSocket(unackedDataElements[i]);
+					}
 				}
 				
 				logger.info('Initialized the Logmet client. The Logmet handshake is complete.');
@@ -317,8 +323,7 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 			} else {
 				// A data frame has been ACKed
 				if (activeConnection) {
-					currentDataElement = null;
-					currentDataElementACKED = true;
+					unackedDataElements.splice(0, currentAck - previousAck);
 				}
 			}
 			
@@ -439,26 +444,21 @@ function incrementSequenceNumber() {
 }
 
 function processDataBuffer() {
-	if (pendingDataElements.length > 0) {
-		if (lastACK >= currentSequenceNumber) {
-			currentDataElement = pendingDataElements.shift();
-			currentDataElementACKED = false;
-			var frame = convertDataToFrame(currentDataElement, incrementSequenceNumber());
-			
-			logger.debug('About to send window frame');
-			sendWindowFrame(1);
-			logger.debug('Sent window frame: ' + windowFramebuffer);
-
-			if (!activeConnection) {
-				logger.debug('Returned from processDataBuffer() before sending data due to an ongoing reconnection.');
-				return;
-			}
-			
-			logger.debug('Data frame to be sent: ' + frame);
-			tlsSocket.write(frame);
-			logger.info("Sent data frame. Sequence number: " + currentSequenceNumber);
-		}	
+	while (activeConnection && pendingDataElements.length > 0 && unackedDataElements.length < MAX_UNACKED_ELEMENTS) {
+		var currentDataElement = pendingDataElements.shift();
+		unackedDataElements.push(currentDataElement);
+		writeToSocket(currentDataElement);
 	}
+}
+
+function writeToSocket(dataElement) {
+	var frame = convertDataToFrame(dataElement, incrementSequenceNumber());
+	logger.debug('About to send window frame');
+	sendWindowFrame(1);
+	logger.debug('Sent window frame: ' + windowFramebuffer);
+	logger.debug('Data frame to be sent: ' + frame);
+	tlsSocket.write(frame);
+	logger.info("Sent data frame. Sequence number: " + currentSequenceNumber);
 }
 
 function sendWindowFrame(numberOfFrames) {
