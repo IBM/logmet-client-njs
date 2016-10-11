@@ -274,7 +274,7 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 				// If this is a reconnection after a failure, let's check if there is unACKED data to be sent
 				if (unackedDataElements.length !== 0) {
 					for (var i = 0; i < unackedDataElements.length; i++) {
-						writeToSocket(unackedDataElements[i]);
+						writeToSocket(unackedDataElements, i);
 					}
 				}
 				
@@ -445,13 +445,17 @@ function incrementSequenceNumber() {
 function processDataBuffer() {
 	while (socketWrapper.state === State.CONNECTED && pendingDataElements.length > 0 && unackedDataElements.length < MAX_UNACKED_ELEMENTS) {
 		var currentDataElement = pendingDataElements.shift();
-		unackedDataElements.push(currentDataElement);
-		writeToSocket(currentDataElement);
+		var unackedDataElementsLength = unackedDataElements.push(currentDataElement);
+		writeToSocket(unackedDataElements, unackedDataElementsLength - 1);
 	}
 }
 
-function writeToSocket(dataElement) {
-	var frame = convertDataToFrame(dataElement, incrementSequenceNumber());
+function writeToSocket(unackedDataElements, dataElementIndex) {
+	var frame = convertDataToFrame(unackedDataElements[dataElementIndex], incrementSequenceNumber());
+	if (frame.length >= 16000) {
+		logger.error('Rejecting data element. Only data elements smaller than 16Kb are accepted by Logmet.');
+		return;
+	}
 	logger.debug('About to send window frame');
 	sendWindowFrame(1);
 	logger.debug('Sent window frame: ' + windowFramebuffer);
