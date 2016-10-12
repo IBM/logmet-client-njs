@@ -314,7 +314,7 @@ function socketEventHandler(eventName, error) {
 	this.state = State.DISCONNECTED;
 	this.socket.destroy();
 
-	if (error === 'timeout') {
+	if (eventName === 'timeout') {
 		logger.info("A 'timeout' event was caught. Proactively re-creating logmet connection.");
 		retryFunction();
 		return;
