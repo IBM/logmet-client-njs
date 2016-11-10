@@ -159,26 +159,21 @@ LogmetProducer.prototype.sendData = function(data, type, tenantId, callback) {
 
 
 /*
- *  Gracefully stops the connection with Logmet's MT Lumberjack server
- *  It will close the connection only after all locally-buffered data has been received by Logmet.
+ * Gracefully stops the connection with Logmet's MT Lumberjack server
+ * It will close the connection only after all locally-buffered data has been received by Logmet.
+ * 
+ * @param {function} callback() A callback function to notify the caller that the connection to logmet has been closed
  */
-LogmetProducer.prototype.terminate = function() {
+LogmetProducer.prototype.terminate = function(callback) {
 	if (pendingDataElements.length === 0 && unackedDataElements.length === 0) {
 		initialConnectionEstablished = false;
 		socketWrapper.state = State.DISCONNECTED;
 		tlsSocket.destroy();
 		logger.info('Logmet client has been stopped.');
+		callback();
 	} else {
 		logger.info('Started a timer to stop the Logmet client. Poll frequency: ' + TERMINATE_POLL_INTERVAL + ' ms');
-		var timer = setInterval(function() {
-			if (pendingDataElements.length === 0 && unackedDataElements.length === 0) {
-				initialConnectionEstablished = false;
-				socketWrapper.state = State.DISCONNECTED;
-				tlsSocket.destroy();
-				logger.info('Logmet client has been stopped.');
-				clearInterval(timer);
-			}
-		}, TERMINATE_POLL_INTERVAL);
+		setTimeout(this.terminate.bind(this, callback), TERMINATE_POLL_INTERVAL);
 	}
 };
 
