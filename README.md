@@ -10,7 +10,7 @@ This library is released under the [Apache 2.0 license](https://github.com/IBM/l
 
 ## Contributing
 
-Contributions are welcome via pull requests. Please submit your pull request against the [Developer's Certificate of Origin](https://github.com/IBM/logmet-client-njs/blob/master/DCO.txt), adding a line like the following to the end of the file, using your name and e-mail address:
+Contributions are welcome via pull requests. Please submit your pull request against the [Developer's Certificate of Origin](https://github.com/IBM/logmet-client-njs/blob/master/DCO.txt), adding a line like the following to your commit messages, using your name and e-mail address:
 
 ```
 Signed-off-by: John Doe john.doe@example.org
