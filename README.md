@@ -4,6 +4,18 @@
 
 This is a nodejs module for sending data to and querying data from Logmet. This module defines two classes: `LogmetProducer` and `LogmetConsumer`. This document describes these two classes and provides some guidance on how to use them to, respectively, send and query data.
 
+## License
+
+This library is released under the [Apache 2.0 license](https://github.com/IBM/logmet-client-njs/blob/master/LICENSE.txt).
+
+## Contributing
+
+Contributions are welcome via pull requests. Please submit your pull request against the [Developer's Certificate of Origin](https://github.com/IBM/logmet-client-njs/blob/master/DCO.txt), adding a line like the following to the end of the file, using your name and e-mail address:
+
+```
+Signed-off-by: John Doe john.doe@example.org
+```
+
 
 ## LogmetProducer Class
 
