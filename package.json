@@ -1,15 +1,18 @@
 {
-  "name": "logmet-client",
-  "version": "0.1.2",
-  "description": "Library for sending data to and querying data from Logmet",
-  "author": "Fabio A. Oliveira <fabolive@us.ibm.com>",
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/IBM/logmet-client-njs"
-  },
-  "dependencies": {
-  	"bunyan": "^1.8.9"
-  },
-  "main": "index.js"
+    "name": "logmet-client",
+    "version": "0.1.2",
+    "description": "Library for sending data to and querying data from Logmet",
+    "author": "Fabio A. Oliveira <fabolive@us.ibm.com>",
+    "license": "Apache-2.0",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/IBM/logmet-client-njs"
+    },
+    "dependencies": {
+        "bunyan": "^1.8.9"
+    },
+    "devDependencies": {
+        "eslint": "^3.19.0"
+    },
+    "main": "index.js"
 }

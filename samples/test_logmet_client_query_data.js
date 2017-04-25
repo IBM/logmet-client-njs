@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+
 var LogmetConsumer = require('../LogmetConsumer'); 
 
 var logmetQueryEndpoint = 'logmet.ng.bluemix.net';
@@ -15,23 +17,23 @@ var type = 'fabio-test-1';
 var logmetClient = new LogmetConsumer(logmetQueryEndpoint);
 
 var queryDSLBody = {
-		_source: true,
-		query: {
-			filtered: {
-				filter: {
-					term: {
-						item: 15
-					}
-				}
-			}
-		}
+    _source: true,
+    query: {
+        filtered: {
+            filter: {
+                term: {
+                    item: 15
+                }
+            }
+        }
+    }
 };
 
 logmetClient.query(tenantId, bearerToken, type, queryDSLBody, function(error, documents) {
-	if (error != '') {
-		console.log('Query returned an error: ' + error);
-	} else {
-		console.log('Documents returned by Logmet:');
-		console.log(documents);
-	}
+    if (error != '') {
+        console.log('Query returned an error: ' + error);
+    } else {
+        console.log('Documents returned by Logmet:');
+        console.log(documents);
+    }
 });

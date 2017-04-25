@@ -1,6 +1,4 @@
-
-
-# logmet-client
+# logmet-client [![Build Status](https://travis-ci.org/IBM/logmet-client-njs.svg?branch=master)](https://travis-ci.org/IBM/logmet-client-njs)
 
 This is a nodejs module for sending data to and querying data from Logmet. This module defines two classes: `LogmetProducer` and `LogmetConsumer`. This document describes these two classes and provides some guidance on how to use them to, respectively, send and query data.
 
