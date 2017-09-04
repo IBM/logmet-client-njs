@@ -1,8 +1,8 @@
 /* eslint-disable no-console */
 
-var LogmetProducer = require('../LogmetProducer'); 
+var LogmetProducer = require('../LogmetProducer');
 
-var logmetEndpoint = 'logs.opvis.bluemix.net';
+var logmetEndpoint = 'ingest.logging.ng.bluemix.net';
 var logmetPort = 9091;
 
 //********************************************************
@@ -82,7 +82,7 @@ logmetClient.connect(function(error, status) {
         console.log('LogmetClient returned an error: ' + error);
     } else if (status.handshakeCompleted) {
         console.log('LogmetClient is ready to send data.');
-	
+
         var data = sample_data;
 
         var i = 0;
@@ -100,7 +100,7 @@ logmetClient.connect(function(error, status) {
                 });
             } else {
                 clearInterval(timer);
-                logmetClient.terminate();
+                logmetClient.terminate(() => {});
             }
         }, timeBetweenData);
     }
