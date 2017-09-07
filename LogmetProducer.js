@@ -238,12 +238,12 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
     tlsSocket.on('end', socketEventHandler.bind(socketWrapper, 'end'));
     tlsSocket.on('close', socketEventHandler.bind(socketWrapper, 'close'));
 
-    let ackBuffer = Buffer.allocUnsafe(6);
-    let ackPosition = 0;
+    var ackBuffer = Buffer.allocUnsafe(6);
+    var ackPosition = 0;
 
     tlsSocket.on('data', function(data) {
         // We must have received part of an ACK from Logmet. Let's process it.
-        let dataBuf = Buffer.from(data);
+        var dataBuf = Buffer.from(data);
         dataBuf.copy(ackBuffer, ackPosition);
         ackPosition += dataBuf.length;
 

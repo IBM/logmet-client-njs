@@ -100,7 +100,7 @@ logmetClient.connect(function(error, status) {
                 });
             } else {
                 clearInterval(timer);
-                logmetClient.terminate(() => {});
+                logmetClient.terminate(function() {});
             }
         }, timeBetweenData);
     }
