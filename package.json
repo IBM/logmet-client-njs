@@ -1,6 +1,6 @@
 {
     "name": "logmet-client",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "description": "Library for sending data to and querying data from Logmet",
     "author": "Fabio A. Oliveira <fabolive@us.ibm.com>",
     "license": "Apache-2.0",
