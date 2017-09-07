@@ -36,7 +36,7 @@ var currentSequenceNumber = 0;
 // Logmet mandatory field for identifying the data owner
 var ALCHEMY_TENANT_ID_KEY = 'ALCH_TENANT_ID';
 
-// Max Lumberjack sequence number before rolling over 
+// Max Lumberjack sequence number before rolling over
 var MAX_SEQ_NUMBER = Number.MAX_SAFE_INTEGER - 1;
 
 // Used to buffer data that needs to be sent out to Logmet
@@ -58,9 +58,9 @@ var windowFramebuffer;
 var initialConnectionEstablished = false;
 
 // When a call to terminate() is made, how frequently we should check if all data has been flushed.
-var TERMINATE_POLL_INTERVAL = 300; // milliseconds 
+var TERMINATE_POLL_INTERVAL = 300; // milliseconds
 
-// How much time until we detect an unexpected network error 
+// How much time until we detect an unexpected network error
 var INACTIVITY_TIMEOUT = 30000; // milliseconds
 
 // How much time until we re-try when a connection drops
@@ -82,7 +82,7 @@ var retryFunction;
  * @param {string} logmetToken The Logmet token (API key) used for authentication
  * @param {boolean} isSuperTenant Flag indicating whether or not the value passed to tenantOrSupertenantId represents a supertenant
  * @param {object} options Additional optional parameters that override defaults. Supported overrides: bufferSize
- *  
+ *
  */
 function LogmetProducer(endpoint, port, tenantOrSupertenantId, logmetToken, isSuperTenant, options) {
     this.endpoint = endpoint;
@@ -94,10 +94,10 @@ function LogmetProducer(endpoint, port, tenantOrSupertenantId, logmetToken, isSu
     if (options && options.bufferSize && parseInt(options.bufferSize, 10)) {
         MAX_PENDING_ELEMENTS = parseInt(options.bufferSize, 10);
     }
-		
+
     windowFramebuffer = new Buffer(6);
-    windowFramebuffer.write('1W', 0, 2);	
-	
+    windowFramebuffer.write('1W', 0, 2);
+
 }
 
 // Export the constructor
@@ -111,9 +111,9 @@ module.exports = LogmetProducer;
 /*
  * Establishes a connection with Logmet for sending data.
  * This function must be called once to enable the sendData function
- * 
- * @param {function(error,data)} callback Callback function to be invoked in case of error or for signaling that 
- *  the handshake with Logmet has successfully completed. The returned error message is assigned to the 
+ *
+ * @param {function(error,data)} callback Callback function to be invoked in case of error or for signaling that
+ *  the handshake with Logmet has successfully completed. The returned error message is assigned to the
  *  first argument of callback; if any data is available, it is assigned to the second argument of callback.
  */
 
@@ -123,18 +123,18 @@ LogmetProducer.prototype.connect = function(callback) {
 };
 
 /*
- * Sends data to Logmet. 
- * 
+ * Sends data to Logmet.
+ *
  * A call to the connectToMTLumberjackServer() function must be made before sendData() can be called.
- * 
+ *
  * @param {object} data The object representing the data to be sent out to Logmet
  * @param {string} type The type that identifies the data
  * @param {function} callback(error, data) A callback function that is called to notify the caller of the operation result
- * @param {string} tenantId The id of the tenant who owns the data 
+ * @param {string} tenantId The id of the tenant who owns the data
  */
 LogmetProducer.prototype.sendData = function(data, type, tenantId, callback) {
 
-    var activeConnection = socketWrapper.state === State.CONNECTED;	
+    var activeConnection = socketWrapper.state === State.CONNECTED;
 
     if (pendingDataElements.length >= MAX_PENDING_ELEMENTS) {
 		// Our buffer is full. Apply back pressure.
@@ -142,15 +142,15 @@ LogmetProducer.prototype.sendData = function(data, type, tenantId, callback) {
         callback('ERROR: Buffer of data elements is full.', {connectionActive: activeConnection});
         return;
     }
-	
+
     var augmentedData = Object.assign({}, data);
     augmentedData[ALCHEMY_TENANT_ID_KEY] = tenantId;
     augmentedData['type'] = type;
-	
+
     pendingDataElements.push(augmentedData);
-	
+
     logger.debug('Current size of pending data buffer: ' + pendingDataElements.length);
-	
+
     callback('', {connectionActive: activeConnection});
     if (activeConnection) {
         processDataBuffer();
@@ -161,7 +161,7 @@ LogmetProducer.prototype.sendData = function(data, type, tenantId, callback) {
 /*
  * Gracefully stops the connection with Logmet's MT Lumberjack server
  * It will close the connection only after all locally-buffered data has been received by Logmet.
- * 
+ *
  * @param {function} callback() A callback function to notify the caller that the connection to logmet has been closed
  */
 LogmetProducer.prototype.terminate = function(callback) {
@@ -201,7 +201,7 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
     currentSequenceNumber = 0;
     currentAck = -1;
     previousAck = -1;
-	
+
     var conn_options = {
         host: endpoint,
         port: port
@@ -210,7 +210,7 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
     tlsSocket = tls.connect(conn_options, function() {
         if (tlsSocket.authorized) {
             logger.info('Successfully established a connection with Logmet');
-        
+
         // Now that the connection has been established, let's perform the handshake with Logmet
             authenticate(tenantOrSupertenantId, logmetToken, isSuperTenant);
         } else {
@@ -229,7 +229,7 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
     retryFunction = connectToMTLumberjackServer.bind(this, endpoint, port, tenantOrSupertenantId, logmetToken, isSuperTenant, callback);
 
 	// Define callbacks to handle the network communication with Logmet
-	
+
     tlsSocket.setTimeout(INACTIVITY_TIMEOUT);
 
     tlsSocket.on('timeout', socketEventHandler.bind(socketWrapper, 'timeout'));
@@ -237,12 +237,26 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
     tlsSocket.on('disconnect', socketEventHandler.bind(socketWrapper, 'disconnect'));
     tlsSocket.on('end', socketEventHandler.bind(socketWrapper, 'end'));
     tlsSocket.on('close', socketEventHandler.bind(socketWrapper, 'close'));
-	
+
+    var ackBuffer = Buffer.allocUnsafe(6);
+    var ackPosition = 0;
+
     tlsSocket.on('data', function(data) {
-		// We must have received an ACK from Logmet. Let's process it.
-        var buffer = new Buffer(data);
-        var version = buffer[0];
-        var type = buffer[1];
+        // We must have received part of an ACK from Logmet. Let's process it.
+        var dataBuf = Buffer.from(data);
+        dataBuf.copy(ackBuffer, ackPosition);
+        ackPosition += dataBuf.length;
+
+        if (ackPosition !== 6) {
+            // We don't have a complete ACK message yet, so return and wait for the rest
+            return;
+        } else {
+            // We now have a complete ACK message, so reset the position pointer in the ackBuffer and continue
+            ackPosition = 0;
+        }
+
+        var version = ackBuffer[0];
+        var type = ackBuffer[1];
         if (type != 65) {
 			// Unknown ACK type
             logger.error('Received an unknown ACK type from Logmet: ' + String.fromCharCode(type));
@@ -261,23 +275,23 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 			// We got a '"1A"<ack_number>'. Let's read the ACK number.
             logger.debug("Reading ACK number");
             previousAck = currentAck;
-            currentAck = buffer.readInt32BE(2);
+            currentAck = ackBuffer.readInt32BE(2);
             logger.info('Last ACK received: ' + currentAck);
             if (currentAck == 0) {
 				// The connection has just been established.
-				
+
 				// If this is a reconnection after a failure, let's check if there is unACKED data to be sent
                 if (unackedDataElements.length !== 0) {
                     for (var i = 0; i < unackedDataElements.length; i++) {
                         writeToSocket(unackedDataElements, i);
                     }
                 }
-				
+
                 logger.info('Initialized the Logmet client. The Logmet handshake is complete.');
 
 				// Reset the retry delay, as we have just successfully connected.
                 RETRY_DELAY = INITIAL_RETRY_DELAY;
-				
+
                 if (!initialConnectionEstablished) {
 					// Let's signal the constructor caller that the connection is established.
 					// We only notify the constructor caller when the first connection is established.
@@ -291,7 +305,7 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
                     unackedDataElements.splice(0, currentAck - previousAck);
                 }
             }
-			
+
             socketWrapper.state = State.CONNECTED;
             processDataBuffer();
         } else {
@@ -333,64 +347,64 @@ function authenticate(tenantOrSupertenantId, logmetToken, isSuperTenant) {
     var idFrameTypeAndVersion = "1I";
     var clientIdString = "standalone_dlms_data_client_v0.0.1_" + os.hostname();
     logger.info('Identifying the Logmet client: ' + clientIdString);
-	
+
     var idDataBuffer = new Buffer(idFrameTypeAndVersion.length + 1 + clientIdString.length);
-	
+
     idDataBuffer.write(idFrameTypeAndVersion, 0 , idFrameTypeAndVersion.length);
-	
+
     idDataBuffer.writeUIntBE(clientIdString.length, idFrameTypeAndVersion.length, 1);
     idDataBuffer.write(clientIdString, idFrameTypeAndVersion.length + 1, clientIdString.length);
-	
+
 	// Send the identification frame to Logmet
     tlsSocket.write(idDataBuffer);
-	
+
 	// Authentication frame:
 	// 2 | S or T | tenant_id_size | tenant_id | token_size | token
     var authFrameTypeAndVersion = isSuperTenant ? '2S' : '2T';
     logger.info('Authenticating with Logmet with frame type: ' + authFrameTypeAndVersion[1]);
-	
+
     var bufferSize = authFrameTypeAndVersion.length + tenantOrSupertenantId.length + logmetToken.length + 2;
     var authDataBuffer = new Buffer(bufferSize);
-	
+
     authDataBuffer.write(authFrameTypeAndVersion, 0, authFrameTypeAndVersion.length);
-	
+
     authDataBuffer.writeUIntBE(tenantOrSupertenantId.length, authFrameTypeAndVersion.length, 1);
     authDataBuffer.write(tenantOrSupertenantId, authFrameTypeAndVersion.length + 1, tenantOrSupertenantId.length);
-	
+
     authDataBuffer.writeUIntBE(logmetToken.length, authFrameTypeAndVersion.length + 1 + tenantOrSupertenantId.length, 1);
     authDataBuffer.write(logmetToken, authFrameTypeAndVersion.length + 1 + tenantOrSupertenantId.length + 1, logmetToken.length);
-	
+
 	// Send the authentication frame to Logmet
     tlsSocket.write(authDataBuffer);
 }
 
 /*
  * Converts an object into a Lumberjack data frame
- * 
+ *
  * @param {object} data The object to be converted into a Lumberjack frame
- * 
+ *
  * @return A Buffer with a Lumberjack frame representing the provided data object
  */
 function convertDataToFrame(data, sequence) {
 	// Data frame:
 	// 1 | D | <sequence> | <nkeys> | <key_length_i> | <key_i> | <val_length_i> | <val_i> | ...
-	
+
     var dottedNotationData = {};
     objectToFlatDottedNotation(data, '', dottedNotationData);
     logger.debug('Key-value pairs in dotted notation', dottedNotationData);
-	
+
     var numberOfPairs = Object.keys(dottedNotationData).length;
     var bufferSize = 1 + 1 + 4 + 4 + (4 * numberOfPairs) + (4 * numberOfPairs); // "1" | "D" | <seq> | <nkeys> | 4 * <key_length> | 4 * <val_length>
-	
+
     for (var k in dottedNotationData) {
         bufferSize += dottedNotationData[k].length + k.length;
     }
-	
+
     var buffer = new Buffer(bufferSize);
     buffer.write("1D", 0, 2);
     buffer.writeUInt32BE(sequence, 2);
     buffer.writeUInt32BE(numberOfPairs, 6);
-	
+
     var offset = 10;
     for (k in dottedNotationData) {
         buffer.writeUInt32BE(k.length, offset);
@@ -413,12 +427,12 @@ function objectToFlatDottedNotation(data, prefix, dottedNotationData) {
     var newKey;
     for (var k in data) {
         if (typeof data[k] === 'string' || typeof data[k] === 'number') {
-            newKey = (prefix == '') ? k : prefix + '.' + k; 
+            newKey = (prefix == '') ? k : prefix + '.' + k;
             dottedNotationData[newKey] = data[k].toString();
         } else if (Array.isArray(data[k]) && (typeof data[k][0] === 'string' || typeof data[k][0] === 'number')) {
             newKey = (prefix == '') ? k : prefix + '.' + k;
             dottedNotationData[newKey] = data[k].join(',');
-        } 
+        }
         else if (typeof data[k] === 'object') {
             var newPrefix = (prefix == '') ? k : prefix + '.' + k;
             objectToFlatDottedNotation(data[k], newPrefix, dottedNotationData);
