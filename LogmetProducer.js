@@ -333,7 +333,7 @@ function socketEventHandler(eventName, error) {
 		// While trying to connect or reconnect, either the connection attempt was refused or the network was down. Retry...
         logger.warn('Connection refused or network down.');
     }
-    logger.warn("A '" + eventName + "' event was caught. The connection with Lomet was compromised. Will attempt to reconnect in " + RETRY_DELAY + " seconds.");
+    logger.warn("A '" + eventName + "' event was caught. The connection with Logmet was compromised. Will attempt to reconnect in " + RETRY_DELAY + " seconds.");
     retryWithExponentialBackoff(retryFunction);
 
 }
