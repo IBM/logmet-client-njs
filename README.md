@@ -57,7 +57,7 @@ logmetProducer.connect(function(error, status) {
 });
 
 function sendData(event) {
-    logmetProducer.sendData(event, 'tool_id', logmetTenant, function(error, status) {
+    logmetProducer.sendData(event, logmetTenant, function(error, status) {
         if (error) {
             console.log('Logmet client rejected the data. ERROR: ' + error);
         } else {
@@ -75,7 +75,6 @@ Before calling the `sendData` function for the first time, the program should ca
 The `sendData` function, as shown in the sample above, takes the following parameters in that order:
 
 * the object to be send to Logmet.
-* the Elasticsearch type to be associated with the object.
 * the Bluemix space id corresponding to the owner of the data. If the constructor was called with a regular tenant id, that is, `isSuperTenant` was set to `false`, then the value of this parameter must match the id given to the constructor. Differently, if the constructor was called with `isSuperTenant` set to `true`, then the value of this parameter will contain a Bluemix space id corresponding to the tenant who will own the data, on behalf of whom the _supertenant_ is sending the data.
 * A callback function, indicating whether the data was accepted or not.
 
@@ -137,7 +136,7 @@ The `query` function, used in the sample above, takes the following parameters i
 * A valid Bluemix bearer token belonging to the identified tenant.
 * The Elasticsearch type that has been associated with the data being queried.
 * A query expressed in the Elasticsearch query DSL codified as a nodejs object.
-* A callback function used to process errors as well as the actual data returned by the query.
+* A callback function (optionally) used to process errors as well as the actual data returned by the query.
 
 In case of error, the callback function will receive the error message in the `error` argument. All documents retrieved by the query will be passed to the callback function as an array of objects assigned to the argument `documents`.
 

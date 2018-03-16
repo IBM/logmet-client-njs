@@ -118,7 +118,7 @@ module.exports = LogmetProducer;
  */
 
 LogmetProducer.prototype.connect = function(callback) {
-	// Connect to Logmet so that data can be sent out
+    // Connect to Logmet so that data can be sent out
     connectToMTLumberjackServer(this.endpoint, this.port, this.tenantOrSupertenantId, this.logmetToken, this.isSuperTenant, callback);
 };
 
@@ -128,30 +128,32 @@ LogmetProducer.prototype.connect = function(callback) {
  * A call to the connectToMTLumberjackServer() function must be made before sendData() can be called.
  *
  * @param {object} data The object representing the data to be sent out to Logmet
- * @param {string} type The type that identifies the data
- * @param {function} callback(error, data) A callback function that is called to notify the caller of the operation result
  * @param {string} tenantId The id of the tenant who owns the data
+ * @param {function} (optional) callback(error, data) A callback function that is called to notify the caller of the operation result
  */
-LogmetProducer.prototype.sendData = function(data, type, tenantId, callback) {
+LogmetProducer.prototype.sendData = function(data, tenantId, callback) {
 
     var activeConnection = socketWrapper.state === State.CONNECTED;
 
     if (pendingDataElements.length >= MAX_PENDING_ELEMENTS) {
-		// Our buffer is full. Apply back pressure.
+        // Our buffer is full. Apply back pressure.
         logger.warn('Buffer of data elements is full. Rejecting new data. Connection state: ' + socketWrapper.state);
-        callback('ERROR: Buffer of data elements is full.', {connectionActive: activeConnection});
+        if (callback) {
+            callback('ERROR: Buffer of data elements is full.', {connectionActive: activeConnection});
+        }
         return;
     }
 
     var augmentedData = Object.assign({}, data);
     augmentedData[ALCHEMY_TENANT_ID_KEY] = tenantId;
-    augmentedData['type'] = type;
 
     pendingDataElements.push(augmentedData);
 
     logger.debug('Current size of pending data buffer: ' + pendingDataElements.length);
 
-    callback('', {connectionActive: activeConnection});
+    if (callback) {
+        callback(null, {connectionActive: activeConnection});
+    }
     if (activeConnection) {
         processDataBuffer();
     }
@@ -211,7 +213,7 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
         if (tlsSocket.authorized) {
             logger.info('Successfully established a connection with Logmet');
 
-        // Now that the connection has been established, let's perform the handshake with Logmet
+            // Now that the connection has been established, let's perform the handshake with Logmet
             authenticate(tenantOrSupertenantId, logmetToken, isSuperTenant);
         } else {
             logger.error('Failed to establish a connection with Logmet: ' + tlsSocket.authorizationError);
@@ -228,7 +230,7 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 
     retryFunction = connectToMTLumberjackServer.bind(this, endpoint, port, tenantOrSupertenantId, logmetToken, isSuperTenant, callback);
 
-	// Define callbacks to handle the network communication with Logmet
+    // Define callbacks to handle the network communication with Logmet
 
     tlsSocket.setTimeout(INACTIVITY_TIMEOUT);
 
@@ -258,10 +260,10 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
         var version = ackBuffer[0];
         var type = ackBuffer[1];
         if (type != 65) {
-			// Unknown ACK type
+            // Unknown ACK type
             logger.error('Received an unknown ACK type from Logmet: ' + String.fromCharCode(type));
         } else if (version == 48) {
-			// Got a "0A" from Logmet, that is, an invalid combination of tenant id and password was used
+            // Got a "0A" from Logmet, that is, an invalid combination of tenant id and password was used
             logger.error('Logmet indicated an unauthorized connection due to invalid credentials.');
             socketWrapper.state = State.DISCONNECTED;
             tlsSocket.destroy();
@@ -272,15 +274,15 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
                 retryWithExponentialBackoff(retryFunction);
             }
         } else if (version == 49) {
-			// We got a '"1A"<ack_number>'. Let's read the ACK number.
-            logger.debug("Reading ACK number");
+            // We got a '"1A"<ack_number>'. Let's read the ACK number.
+            logger.debug('Reading ACK number');
             previousAck = currentAck;
             currentAck = ackBuffer.readInt32BE(2);
             logger.info('Last ACK received: ' + currentAck);
             if (currentAck == 0) {
-				// The connection has just been established.
+                // The connection has just been established.
 
-				// If this is a reconnection after a failure, let's check if there is unACKED data to be sent
+                // If this is a reconnection after a failure, let's check if there is unACKED data to be sent
                 if (unackedDataElements.length !== 0) {
                     for (var i = 0; i < unackedDataElements.length; i++) {
                         writeToSocket(unackedDataElements, i);
@@ -289,18 +291,18 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 
                 logger.info('Initialized the Logmet client. The Logmet handshake is complete.');
 
-				// Reset the retry delay, as we have just successfully connected.
+                // Reset the retry delay, as we have just successfully connected.
                 RETRY_DELAY = INITIAL_RETRY_DELAY;
 
                 if (!initialConnectionEstablished) {
-					// Let's signal the constructor caller that the connection is established.
-					// We only notify the constructor caller when the first connection is established.
-					// We should NOT call back to the caller every time we reconnect due to an error.
+                    // Let's signal the constructor caller that the connection is established.
+                    // We only notify the constructor caller when the first connection is established.
+                    // We should NOT call back to the caller every time we reconnect due to an error.
                     initialConnectionEstablished = true;
                     callback('', {handshakeCompleted: true});
                 }
             } else {
-				// A data frame has been ACKed
+                // A data frame has been ACKed
                 if (socketWrapper.state === State.CONNECTED) {
                     unackedDataElements.splice(0, currentAck - previousAck);
                 }
@@ -309,7 +311,7 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
             socketWrapper.state = State.CONNECTED;
             processDataBuffer();
         } else {
-			// Unknown ACK version
+            // Unknown ACK version
             logger.error('Received an unknown ACK version from Logmet: ' + String.fromCharCode(version));
         }
     });
@@ -317,23 +319,19 @@ function connectToMTLumberjackServer(endpoint, port, tenantOrSupertenantId, logm
 
 function socketEventHandler(eventName, error) {
     if (this.state === State.DISCONNECTED) {
-        logger.debug("Caught '" + eventName + "' event. No action is being taken.");
+        logger.debug('Caught \'' + eventName + '\' event. No action is being taken.');
         return;
     }
     this.state = State.DISCONNECTED;
     this.socket.destroy();
 
     if (eventName === 'timeout') {
-        logger.info("A 'timeout' event was caught. Proactively re-creating logmet connection.");
+        logger.info('A \'timeout\' event was caught. Proactively re-creating logmet connection.');
         retryFunction();
         return;
     }
 
-    if (error && (error.code == 'ECONNREFUSED' || error.code == 'ENOTFOUND') ) {
-		// While trying to connect or reconnect, either the connection attempt was refused or the network was down. Retry...
-        logger.warn('Connection refused or network down.');
-    }
-    logger.warn("A '" + eventName + "' event was caught. The connection with Logmet was compromised. Will attempt to reconnect in " + RETRY_DELAY + " seconds.");
+    logger.warn(`A(n) '${ eventName }' event was caught (details: ${ error && error.code || error }). Will attempt to reconnect to Logmet in ${ RETRY_DELAY } seconds.`);
     retryWithExponentialBackoff(retryFunction);
 
 }
@@ -342,10 +340,10 @@ function socketEventHandler(eventName, error) {
  * Performs the Logmet authentication handshake
  */
 function authenticate(tenantOrSupertenantId, logmetToken, isSuperTenant) {
-	// Identification frame:
-	// 1 | I | id_size | id
-    var idFrameTypeAndVersion = "1I";
-    var clientIdString = "standalone_dlms_data_client_v0.0.1_" + os.hostname();
+    // Identification frame:
+    // 1 | I | id_size | id
+    var idFrameTypeAndVersion = '1I';
+    var clientIdString = 'standalone_dlms_data_client_v0.0.1_' + os.hostname();
     logger.info('Identifying the Logmet client: ' + clientIdString);
 
     var idDataBuffer = new Buffer(idFrameTypeAndVersion.length + 1 + clientIdString.length);
@@ -355,11 +353,11 @@ function authenticate(tenantOrSupertenantId, logmetToken, isSuperTenant) {
     idDataBuffer.writeUIntBE(clientIdString.length, idFrameTypeAndVersion.length, 1);
     idDataBuffer.write(clientIdString, idFrameTypeAndVersion.length + 1, clientIdString.length);
 
-	// Send the identification frame to Logmet
+    // Send the identification frame to Logmet
     tlsSocket.write(idDataBuffer);
 
-	// Authentication frame:
-	// 2 | S or T | tenant_id_size | tenant_id | token_size | token
+    // Authentication frame:
+    // 2 | S or T | tenant_id_size | tenant_id | token_size | token
     var authFrameTypeAndVersion = isSuperTenant ? '2S' : '2T';
     logger.info('Authenticating with Logmet with frame type: ' + authFrameTypeAndVersion[1]);
 
@@ -374,7 +372,7 @@ function authenticate(tenantOrSupertenantId, logmetToken, isSuperTenant) {
     authDataBuffer.writeUIntBE(logmetToken.length, authFrameTypeAndVersion.length + 1 + tenantOrSupertenantId.length, 1);
     authDataBuffer.write(logmetToken, authFrameTypeAndVersion.length + 1 + tenantOrSupertenantId.length + 1, logmetToken.length);
 
-	// Send the authentication frame to Logmet
+    // Send the authentication frame to Logmet
     tlsSocket.write(authDataBuffer);
 }
 
@@ -386,8 +384,8 @@ function authenticate(tenantOrSupertenantId, logmetToken, isSuperTenant) {
  * @return A Buffer with a Lumberjack frame representing the provided data object
  */
 function convertDataToFrame(data, sequence) {
-	// Data frame:
-	// 1 | D | <sequence> | <nkeys> | <key_length_i> | <key_i> | <val_length_i> | <val_i> | ...
+    // Data frame:
+    // 1 | D | <sequence> | <nkeys> | <key_length_i> | <key_i> | <val_length_i> | <val_i> | ...
 
     var dottedNotationData = {};
     objectToFlatDottedNotation(data, '', dottedNotationData);
@@ -401,7 +399,7 @@ function convertDataToFrame(data, sequence) {
     }
 
     var buffer = new Buffer(bufferSize);
-    buffer.write("1D", 0, 2);
+    buffer.write('1D', 0, 2);
     buffer.writeUInt32BE(sequence, 2);
     buffer.writeUInt32BE(numberOfPairs, 6);
 
@@ -441,7 +439,7 @@ function objectToFlatDottedNotation(data, prefix, dottedNotationData) {
 }
 
 function incrementSequenceNumber() {
-	// Logmet doesn't seem to acknowledge an ACK if it has a number lower than the previous ACK
+    // Logmet doesn't seem to acknowledge an ACK if it has a number lower than the previous ACK
     if (currentSequenceNumber + 1 > MAX_SEQ_NUMBER) {
         socketWrapper.state = State.DISCONNECTED;
         tlsSocket.destroy();
@@ -471,7 +469,7 @@ function writeToSocket(unackedDataElements, dataElementIndex) {
     logger.debug('Sent window frame: ' + windowFramebuffer);
     logger.debug('Data frame to be sent: ' + frame);
     tlsSocket.write(frame);
-    logger.info("Sent data frame. Sequence number: " + currentSequenceNumber);
+    logger.info('Sent data frame. Sequence number: ' + currentSequenceNumber);
 }
 
 function sendWindowFrame(numberOfFrames) {
